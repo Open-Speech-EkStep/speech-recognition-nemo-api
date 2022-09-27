@@ -9,7 +9,6 @@ class ModelItem:
         self.model_file_name = model_file_name
         self.lexicon_file_name = 'lexicon.lst'
         self.language_model_name = 'lm.binary'
-        self.dict_file_name = 'dict.ltr.txt'
         self.punctuation_and_itn_enabled = False
 
     def get_model(self):
@@ -32,9 +31,6 @@ class ModelItem:
 
     def get_language_model_path(self):
         return self.base_path + "/" + self.language_model_name
-
-    def get_dict_file_path(self):
-        return self.base_path + "/" + self.dict_file_name
 
     def get_puncutation_model(self):
         return self.punctuation_model
