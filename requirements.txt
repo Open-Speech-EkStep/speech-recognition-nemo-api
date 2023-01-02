@@ -19,7 +19,8 @@ pytest-mock
 webrtcvad
 pydub
 tqdm
+Cython
 mimeparse
-torchaudio==0.7.2
-numpy==1.20.0
 GPUtil==1.4.0
+pyctcdecode
+nemo_tookkit['all']
