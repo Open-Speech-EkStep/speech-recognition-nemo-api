@@ -2,16 +2,18 @@
 import itertools
 import json
 import os
+import sys
+sys.path.insert(0, '/home/anirudh/Documents/ekstep/speech-recognition-nemo-api')
 
 import torch
-from inverse_text_normalization.run_predict import inverse_normalize_text
-from punctuate.punctuate_text import Punctuation
+#from inverse_text_normalization.run_predict import inverse_normalize_text
+#from punctuate.punctuate_text import Punctuation
 
 from src import log_setup, utilities
 from src.lib.inference_lib import load_model_and_generator, get_results
 from src.model_item import ModelItem
 from src.monitoring import monitor
-from src.srt.subtitle_generator import get_srt
+#from src.srt.subtitle_generator import get_srt
 
 LOGGER = log_setup.get_logger(__name__)
 
@@ -30,7 +32,7 @@ def get_gpu_info(gpu):
 
 class ModelService:
 
-    def __init__(self, model_base_path, decoder_type, cuda, half):
+    def __init__(self, model_base_path, decoder_type, cuda):
         languages = utilities.get_env_var('languages', ['all'])
         LOGGER.info(f'environment requested languages {languages}')
         model_config_file_path = model_base_path + 'model_dict.json'
@@ -43,19 +45,18 @@ class ModelService:
         LOGGER.info(f'configuration from model_dict.json is {model_config}')
         self.model_items = {}
         self.cuda = cuda
-        self.half = half
-        self.punc_models_dict = {}
-        self.enabled_itn_lang_dict = {}
+        #self.punc_models_dict = {}
+        #self.enabled_itn_lang_dict = {}
         self.supported_languages = list(model_config.keys())
-        self.denoiser_path = os.environ.get('UTILITIES_FILES_PATH') + 'denoiser'
+        #self.denoiser_path = os.environ.get('UTILITIES_FILES_PATH') + 'denoiser'
         get_gpu_info(self.cuda)
         for language_code, lang_config in model_config.items():
             if language_code in languages or 'all' in languages:
                 path_split = lang_config["path"].split("/")
-                base_path = model_base_path[:-1] + "/".join(path_split[:-1])
+                base_path = "/".join(path_split[:-1])
                 model_file_name = path_split[-1]
                 model_item = ModelItem(base_path, model_file_name, language_code)
-                model, generator = load_model_and_generator(model_item, self.cuda, decoder=decoder_type, half=self.half)
+                model, generator = load_model_and_generator(model_item, self.cuda, decoder=decoder_type)
                 model.eval()
                 model_item.set_model(model)
                 model_item.set_generator(generator)
@@ -69,22 +70,20 @@ class ModelService:
                     LOGGER.info(f"Loaded {language_code} model with ITN")
 
     @monitor
-    def transcribe(self, file, language, punctuate, itn):
+    def transcribe(self, file, language):
         model_item = self.model_items[language]
         response = get_results(
             wav_path=file,
-            dict_path=model_item.get_dict_file_path(),
             generator=model_item.get_generator(),
             use_cuda=self.cuda,
-            model=model_item.get_model(),
-            half=self.half
+            model=model_item.get_model()
         )
         LOGGER.debug("The model transcript is: %s", response)
-        punctuated_text = self.apply_punctuation(response, language, punctuate)
-        itn_text = self.apply_itn(punctuated_text, language, itn)
-        LOGGER.debug("The model transcript after punctuation and itn: %s", itn_text)
+        #punctuated_text = self.apply_punctuation(response, language, punctuate)
+        #itn_text = self.apply_itn(punctuated_text, language, itn)
+        #LOGGER.debug("The model transcript after punctuation and itn: %s", itn_text)
         return {
-            'transcription': itn_text,
+            'transcription': response,
             'status': 'OK'
         }
 
@@ -105,7 +104,7 @@ class ModelService:
         result['srt'] = result['srt'].replace('\\n','\n')
         LOGGER.info('*** The model SRT is *** %s', result['srt'])
         return result
-
+    '''
     @monitor
     def apply_punctuation(self, text_to_punctuate, language, punctuate):
         result = text_to_punctuate
@@ -123,3 +122,14 @@ class ModelService:
             if enabled_itn != None:
                 result = inverse_normalize_text([text_to_itn], language)[0]
         return result
+    '''
+    
+if __name__=='__main__':
+    m = ModelService('/home/anirudh/Documents/ekstep/speech-recognition-nemo-api/deployed_models/',
+                     decoder_type="kenlm",
+                     cuda=True)
+    print(m.transcribe('/home/anirudh/Documents/ekstep/test_audio/english.wav',
+                       'en'))
+    print(m.transcribe('/home/anirudh/Documents/ekstep/test_audio/hindi.wav',
+                       'hi'))
+    

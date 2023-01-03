@@ -3,8 +3,11 @@ from nemo.utils import model_utils
 from nemo.collections.asr.models import ASRModel
 from nemo.collections.asr.models.ctc_models import EncDecCTCModel
 import os
+import sys
+sys.path.insert(0, '/home/anirudh/Documents/ekstep/speech-recognition-nemo-api')
 from glob import glob
 import torch
+from src.model_item import ModelItem
 from pyctcdecode import build_ctcdecoder
 
 import src.media_convertor
@@ -59,17 +62,17 @@ def get_cuda_device():
 SELECTED_DEVICE = get_cuda_device()
 
 @monitor
-def get_results(wav_path, dict_path, generator, use_cuda=False, w2v_path=None, model=None, half=None):
+def get_results(wav_path, generator, use_cuda=False, model=None):
 
-    dir_name = src.media_convertor.media_conversion(wav_path, duration_limit=15)
-    audio_file = dir_name / 'clipped_audio.wav'
+    #dir_name = src.media_convertor.media_conversion(wav_path, duration_limit=15)
+    #audio_file = dir_name / 'clipped_audio.wav'
 
-    sample = utils.move_to_cuda(sample, SELECTED_DEVICE) if use_cuda else sample
-    logits = model.transcribe([audio_file], logprobs=True)[0]
+    #sample = utils.move_to_cuda(sample, SELECTED_DEVICE) if use_cuda else sample
+    logits = model.transcribe([wav_path], logprobs=True)[0]
 
-    text = generator.deode(logits)
+    text = generator.decode(logits)
     LOGGER.debug(f"deleting sample...")
-    del sample
+    #del sample
     if use_cuda:
         LOGGER.debug(f"clearing cuda cache...")
         torch.cuda.empty_cache()
@@ -82,7 +85,7 @@ def load_model_and_generator(model_item, cuda, decoder="viterbi"):
     lexicon_path = model_item.get_lexicon_path()
     lm_path = model_item.get_language_model_path()
 
-    model_cfg = ASRModel.restore_from(restore_path=model, return_config=True)
+    model_cfg = ASRModel.restore_from(restore_path=model_path, return_config=True)
     classpath = model_cfg.target
     imported_class = model_utils.import_class_by_path(classpath)
 
@@ -111,3 +114,13 @@ def load_model_and_generator(model_item, cuda, decoder="viterbi"):
     LOGGER.info(f'Loading model from {model_path} cuda {cuda}')
 
     return model, generator
+
+if __name__=='__main__':
+    m = ModelItem('/home/anirudh/Documents/ekstep/nemo_models/eng',
+                  'Conformer-CTC-BPE-Large.nemo',
+                  'en')
+    model, generator = load_model_and_generator(m, True, 'kenlm')
+    print(get_results('/home/anirudh/Documents/ekstep/nemo_models/eng/test.wav',
+                      generator=generator,
+                      use_cuda=True,
+                      model=model))
